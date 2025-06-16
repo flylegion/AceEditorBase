@@ -33,13 +33,31 @@
           fontSize: 12,
         });
 
-        // 👇 Añadido: Forzar foco para mostrar teclado Android
+        // Forzar foco inicial para mostrar teclado
         editor.focus();
 
-        // 👇 Añadido: Enviar mensaje a React Native al enfocar texto
+        // Notificar a React Native cuando se enfoca el editor
         editor.onDidFocusEditorText(() => {
           if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage('focused');
+          }
+        });
+
+        // 🧠 Escuchar comandos desde React Native
+        window.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data || '{}');
+            const { type, payload } = data;
+
+            if (type === 'SET_CODE') {
+              editor.setValue(payload || '');
+              editor.focus();
+            } else if (type === 'SELECT_ALL') {
+              editor.setSelection(editor.getModel().getFullModelRange());
+              editor.focus();
+            }
+          } catch (e) {
+            console.warn('Invalid message from React Native:', event.data);
           }
         });
       });
