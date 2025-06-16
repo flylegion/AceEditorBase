@@ -21,7 +21,11 @@
     </style>
   </head>
   <body>
+    <!-- 👇 Input oculto para activar teclado en Android -->
+    <textarea id="fakeInput" style="position:absolute;opacity:0;height:0;width:0;z-index:-1;"></textarea>
+
     <div id="container"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
     <script>
       require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' }});
@@ -33,31 +37,46 @@
           fontSize: 12,
         });
 
-        // Forzar foco inicial para mostrar teclado
-        editor.focus();
+        // 👇 Función para activar teclado en Android
+        const triggerAndroidKeyboard = () => {
+          const fakeInput = document.getElementById('fakeInput');
+          if (fakeInput) {
+            fakeInput.focus();
+            setTimeout(() => {
+              editor.focus();
+            }, 100);
+          }
+        };
 
-        // Notificar a React Native cuando se enfoca el editor
+        // 👇 Al enfocar el editor, activar teclado y enviar mensaje a React Native
         editor.onDidFocusEditorText(() => {
+          triggerAndroidKeyboard();
+
           if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage('focused');
           }
         });
 
-        // 🧠 Escuchar comandos desde React Native
-        window.addEventListener('message', (event) => {
+        // 👇 Escuchar mensajes desde React Native
+        window.addEventListener('message', function(event) {
           try {
-            const data = JSON.parse(event.data || '{}');
-            const { type, payload } = data;
+            const data = JSON.parse(event.data);
 
-            if (type === 'SET_CODE') {
-              editor.setValue(payload || '');
-              editor.focus();
-            } else if (type === 'SELECT_ALL') {
-              editor.setSelection(editor.getModel().getFullModelRange());
+            if (data.type === 'SET_CODE' && typeof data.payload === 'string') {
+              editor.setValue(data.payload);
               editor.focus();
             }
+
+            if (data.type === 'SELECT_ALL') {
+              const model = editor.getModel();
+              if (model) {
+                const fullRange = model.getFullModelRange();
+                editor.setSelection(fullRange);
+                editor.focus();
+              }
+            }
           } catch (e) {
-            console.warn('Invalid message from React Native:', event.data);
+            console.error('Error al procesar mensaje:', e);
           }
         });
       });
